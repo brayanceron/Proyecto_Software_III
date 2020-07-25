@@ -83,7 +83,166 @@ namespace WindowsFormsApp3
         string codigocuota;
         private void btn_buscarpagar_cLICK(object sender, EventArgs e)
         {
+            string busc = txb_codigotransaccionpagar.Text;
 
+            flagprest = false;
+            flaginver = false;
+            //codigocuota = "";
+
+            ///--verifica si no esta lleno el campo
+
+            if (txb_codigotransaccionpagar.Text.Equals("")) { MessageBox.Show("Digite todos los campos"); return; }
+
+            ///Validando que la transaccion exista
+            if (metodos.buscar("transacciones_prestamo", "codprestamo", busc) == true) { flagprest = true; }
+            else if (metodos.buscar("transacciones_inversion", "codinversion", busc) == true) { flaginver = true; }
+            else { MessageBox.Show("La transaccion no fue encontrada"); return; }
+
+
+            if (flagprest == true)
+            {
+                string cns = "select codcuotaprestamo,estadocuotaprestamo from cuotas_prestamo where prestamo like '" + busc + "' order by fechaplaneadaprestamo";
+                NpgsqlDataReader rst = metodos.resultados_consulta(cns);
+
+
+                //determinando la cuota              
+                int numcuotas = rst.FieldCount;
+                int i = 1;
+                Boolean toda = false;
+                while (rst.Read())
+                {
+                    string currentcuota = "" + rst.GetValue(0);
+                    string currentestado = "" + rst.GetValue(1);
+                    if (currentestado.Equals("PENDIENTE"))
+                    {
+                        toda = true;
+                        codigocuota = currentcuota;
+                        break;
+                    }
+                    if (currentestado.Equals("REMATADA"))
+                    {
+                        MessageBox.Show("La deuda ha sido Rematada ");
+                        return;
+                    }
+
+
+                    i++;
+                }
+                if (toda == false)
+                {
+                    MessageBox.Show("La Transacción ya ha sido pagada en su totalidad");
+                    return;
+                }
+
+
+                //poniendo en las cajas
+
+                string consulta = "select nombreprestatario,direccionprestatario," +
+                    "valorcuotaprestamo,fechaplaneadaprestamo,tasacuotaprestamo,estadocuotaprestamo" +
+               " from transacciones_prestamo  join prestatario on(prestatario=codprestatario) join cuotas_prestamo on(codprestamo=prestamo) where codprestamo like '" + busc + "'";
+
+                NpgsqlDataReader resultados = metodos.resultados_consulta(consulta);
+                resultados.Read();
+
+
+                lbl_nombre.Text = resultados.GetValue(0) + "";
+                lbl_direccion.Text = resultados.GetValue(1) + "";
+                lbl_fchefectiva.Text = metodos.fecha_hoy() + "   (hoy)";
+                lbl_cuota.Text = codigocuota;
+                lbl_valor.Text = resultados.GetValue(2) + " $";
+                lbl_tasa.Text = resultados.GetValue(4) + " %";
+                lbl_estado.Text = resultados.GetValue(5) + "";
+                lbl_fchplaneada.Text = resultados.GetValue(3) + "";
+                //lbl_modalidad.Text = "";  //corregir modalidad no va en el menu
+                //lbl_comprobante.Text = Convert.ToString(cuota[9]); //corregir comprobante no va en el menu
+
+
+                pnl_pagar.Enabled = true;
+                pnl_pagobancario.Enabled = false; //ojo solo para las inversiones si se habilida pero solo si es de tio bancaria
+            }
+            else if (flaginver == true)
+            {
+                string cns = "select codcuotainversion,estadocuotainversion from cuotas_inversion where inversion like '" + busc + "' order by fechaplaneadainversion";
+                NpgsqlDataReader rst = metodos.resultados_consulta(cns);
+
+
+                //determinando la cuota              
+                int numcuotas = rst.FieldCount;
+                int i = 1;
+                Boolean toda = false;
+                while (rst.Read())
+                {
+                    string currentcuota = "" + rst.GetValue(0);
+                    string currentestado = "" + rst.GetValue(1);
+                    if (currentestado.Equals("PENDIENTE"))
+                    {
+                        toda = true;
+                        codigocuota = currentcuota;
+                        break;
+                    }
+                    if (currentestado.Equals("REMATADA"))
+                    {
+                        MessageBox.Show("La deuda ha sido Rematada ");
+                        return;
+                    }
+
+
+                    i++;
+                }
+                if (toda == false)
+                {
+                    MessageBox.Show("La Transaccion ya a sido pagada en su totalidad");
+                    return;
+                }
+
+
+                //poniendo en las cajas
+
+                string consulta = "select nombreinversionista,direccioninversionista," +
+                    "valorcuotainversion,fechaplaneadainversion,tasacuotainversion,estadocuotainversion" +
+               " from transacciones_inversion  join inversionista on(inversionista=codinversionista) join cuotas_inversion on(codinversion=inversion) where codinversion like '" + busc + "'";
+
+                NpgsqlDataReader resultados = metodos.resultados_consulta(consulta);
+                resultados.Read();
+
+
+                lbl_nombre.Text = resultados.GetValue(0) + "";
+                lbl_direccion.Text = resultados.GetValue(1) + "";
+                lbl_fchefectiva.Text = metodos.fecha_hoy() + "   (hoy)";
+                lbl_cuota.Text = codigocuota;
+                lbl_valor.Text = resultados.GetValue(2) + " $";
+                lbl_tasa.Text = resultados.GetValue(4) + " %";
+                lbl_estado.Text = resultados.GetValue(5) + "";
+                lbl_fchplaneada.Text = resultados.GetValue(3) + "";
+                //lbl_modalidad.Text = "";  //corregir modalidad no va en el menu
+                //lbl_comprobante.Text = Convert.ToString(cuota[9]); //corregir comprobante no va en el menu
+
+
+                pnl_pagar.Enabled = true;
+                //pnl_pagobancario.Enabled = false; //ojo solo para las inversiones si se habilida pero solo si es de tio bancaria
+
+                string bancarios = "select numcuentainversionista,bancoinversionista,tipocuentainversionista from inversionista join transacciones_inversion on(codinversionista=inversionista) where codinversion like '" + busc + "'";
+                NpgsqlDataReader rbanca = metodos.resultados_consulta(bancarios);
+                rbanca.Read();
+                numcuenta = rbanca.GetValue(0) + "";
+                banco = rbanca.GetValue(1) + "";
+                tipocuenta = rbanca.GetValue(2) + "";
+            }
+
+            //MessageBox.Show("Cuota a pagar: "+codigocuota+" Prestamo: "+busc);
+
+
+
+            //validando usuario:
+            if (user.Equals("Auxiliar"))
+            {
+                pnl_pagar.Enabled = false;
+            }
+            if (user.Equals("Jefe"))
+            {
+                //ojo preguntar si el jefe tambie puede registrar
+
+            }
         }
 
 
@@ -107,7 +266,80 @@ namespace WindowsFormsApp3
 
         private void btn_pagartransaccion_Click(object sender, EventArgs e)
         {
+            ///---validar que todos los campos este llenos
+            if (cbx_modalidad.Text.Equals(""))
+            {
+                MessageBox.Show("Debe digitar todos los campos"); return;
+            }
 
+
+
+            //validar toda la informacion anterior
+            string fechaefectiva = metodos.fecha_hoy();
+            string comprobante = txb_comprobante.Text;
+            string modalidad = cbx_modalidad.Text;
+
+            if (flagprest == true)
+            {
+                string consulta = "update cuotas_prestamo " +
+                    " set estadocuotaprestamo = 'PAGADA', comprobante='" + comprobante +
+                    "' , modalidad = '" + modalidad + "', fechaefectivaprestamo='" + fechaefectiva + "' " +
+                    "where codcuotaprestamo like '" + codigocuota + "'";
+                metodos.resultados_consulta(consulta);
+                MessageBox.Show("Transacción pagada exitosamente");
+                //MessageBox.Show("pagada");
+            }
+
+            else if (flaginver == true)
+            {
+                //Si es por modalidad bancaria solo para inversionistas
+                if (cbx_modalidad.Text.Equals("BANCARIA"))
+                {
+                    ///---validar que todos los campos este llenos
+
+                    if (txb_numerocuenta.Text.Equals("") ||
+                    txb_banco.Text.Equals("") ||
+                    cbx_tipocuenta.Text.Equals("")
+                    )
+                    {
+                        MessageBox.Show("Debe digitar todos los campos"); return;
+                    }
+
+
+
+
+                    string nc = txb_numerocuenta.Text;
+                    string b = txb_banco.Text;
+                    string tc = cbx_tipocuenta.Text;
+
+                    string consulta = "update cuotas_inversion " +
+                    " set estadocuotainversion = 'PAGADA', fechaefectivainversion='" + fechaefectiva + "', " +
+                    " numcuenta='" + nc + "', tipocuenta='" + tc + "', banco='" + b + "' " +
+                    "where codcuotainversion like '" + codigocuota + "'";
+                    metodos.resultados_consulta(consulta);
+
+                }
+                else
+                {
+                    if (txb_comprobante.Text.Equals(""))
+                    {
+                        MessageBox.Show("Debe digitar todos los campos"); return;
+                        return;
+                    }
+                    string consulta = "update cuotas_inversion " +
+                    " set estadocuotainversion = 'PAGADA', comprobante='" + comprobante +
+                    "' , modalidad = '" + modalidad + "', fechaefectivainversion='" + fechaefectiva + "' " +
+                    "where codcuotainversion like '" + codigocuota + "'";
+                    metodos.resultados_consulta(consulta);
+                }
+
+
+                MessageBox.Show("Transacción pagada exitosamente");
+
+
+            }
+            //cerrando la seccion de pagos....
+            Close();
         }
 
         private void txb_codigotransaccionpagar_KeyPress(object sender, KeyPressEventArgs e)
